@@ -1,0 +1,24 @@
+name: package
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  ubuntu-latest:
+    name: ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: tree:0
+      - name: 'Run: Package'
+        run: ./build.cmd Package
+      - name: 'Artifacts: bin'
+        uses: actions/upload-artifact@v7
+        with:
+          path: bin/*.zip
+          archive: false

@@ -1,0 +1,29 @@
+diff --git a/obj/assets/run_bepinex.sh b/obj/assets/run_bepinex.sh
+index f8f2c7f..06ea4a5 100644
+--- a/obj/assets/run_bepinex.sh
++++ b/obj/assets/run_bepinex.sh
+@@ -10,7 +10,16 @@
+ 
+ # LINUX: name of Unity executable
+ # MACOS: name of the .app directory
++os_type="$(uname -s)"
+ executable_name=""
++case ${os_type} in
++	Linux*)
++		executable_name="Hollow Knight Silksong"
++	;;
++	Darwin*)
++		executable_name="Hollow Knight Silksong.app"
++	;;
++esac
+ 
+ # All of the below can be overriden with command line args
+ 
+@@ -124,7 +133,6 @@ abs_path() {
+ }
+ 
+ # Set executable path and the extension to use for the libdoorstop shared object
+-os_type="$(uname -s)"
+ case ${os_type} in
+     Linux*)
+         executable_path="$(abs_path "$executable_name")"

@@ -1,0 +1,30 @@
+[config]
+schemaVersion = "0.0.1"
+
+[package]
+namespace = "silksong_modding"
+name = "BepInExPack_Silksong"
+description = "BepInEx modloader, preconfigured and ready to use for Silksong"
+
+websiteUrl = "https://github.com/silksong-modding/BepInExPack-Silksong"
+containsNsfwContent = false
+
+# intentionally empty to override tcli's bad defaults
+[package.dependencies]
+
+[build]
+icon = "./icon.png"
+readme = "./README.md"
+outdir = "./bin"
+
+[[build.copy]]
+source = "./static"
+target = "/BepInExPack"
+
+[[build.copy]]
+source = "./obj/assets"
+target = "/BepInExPack"
+
+[publish]
+repository = "https://thunderstore.io"
+communities = [ "hollow-knight-silksong" ]
