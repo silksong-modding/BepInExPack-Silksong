@@ -1,8 +1,8 @@
 ![BepInEx logo](https://avatars2.githubusercontent.com/u/39589027?s=256)
 
-# BepInExPack
+# BepInExPack-Silksong
 
-This is [BepInEx 5.4.23.4](https://github.com/BepInEx/BepInEx) pack.
+This is the version of BepInEx specifically tailored for Hollow Knight: Silksong.
 
 The exact version is `BepInEx_win_x64_5.4.23.4.zip` from https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.4
 with changes for better cross-platform support (enumerated below).
@@ -20,10 +20,8 @@ BepInEx is currently [one of the most popular modding tools for Unity on GitHub]
 ## This pack's contents
 
 This pack is preconfigured and usable for x64 Unity games.
-In particular, it includes a preconfigured `BepInEx.cfg` file with the following changes:
-
-* `HideManagerGameObject` set to true
-* Console is enabled with additional logging
+In particular, it includes a preconfigured `BepInEx.cfg` file with our recommended default configuration. Plugin developers
+may also want to set Logging.Console.Enabled to true.
 
 It also includes a launcher script (run_bepinex.sh) with executable name set for both Linux and Mac, along with
 the necessary native code for those platforms in addition to Windows.
@@ -55,5 +53,7 @@ If you are installing this manually, do the following
 ## Issues, questions, etc.
 
 At this moment, you can use the following channels to ask for help:
-* [Thunderstore Discord](https://discord.com/invite/UWpWhjZken) -- **Primarily for when BepInEx is installed through Thunderstore Mod Manager**
-* [BepInEx Discord](https://discord.gg/MpFEDAg) -- **Only for technical support for BepInEx itself. No support for mods / plugins.**
+* [Hollow Knight/Silksong Modding Discord](https://discord.gg/VDsg3HmWuB)
+
+Because we use a customized version of BepInEx, please do not go directly to the BepInEx discord as they may not be able to
+provide support.
