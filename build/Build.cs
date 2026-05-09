@@ -4,6 +4,7 @@ using Nuke.Common.Tooling;
 using Nuke.Common.Tools.Git;
 using Octokit;
 using Serilog;
+using ICSharpCode.SharpZipLib.Zip;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -84,7 +85,53 @@ partial class Build : NukeBuild
             Log.Information("Packaging version {version}", version);
 
             Tcli($"build --package-version {version}");
+
+            Log.Information("Finalizing permissions...");
+            string artifactName = $"silksong_modding-BepInExPack_Silksong-{version}.zip";
+            AbsolutePath sourcePath = ObjDir / artifactName;
+            AbsolutePath artifactPath = BinDir / artifactName;
+            using ZipFile source = new(sourcePath);
+            using ZipOutputStream dest = new(artifactPath.ToFileInfo().Create());
+            // copy and update unix permissions
+            foreach (ZipEntry entry in source)
+            {
+                bool isDir = entry.IsDirectory;
+                if (isDir)
+                {
+                    continue;
+                }
+
+                ZipEntry newEntry = new(entry.Name)
+                {
+                    // 755, normal file
+                    ExternalFileAttributes = 0x81ED << 16,
+                    HostSystem = (int)HostSystemID.Unix,
+                    DateTime = entry.DateTime,
+                    Comment = entry.Comment,
+                    CompressionMethod = entry.Size < 100 ? CompressionMethod.Stored : entry.CompressionMethod,
+                };
+
+                dest.PutNextEntry(newEntry);
+                using System.IO.Stream entryStream = source.GetInputStream(entry);
+                entryStream.CopyTo(dest);
+                dest.CloseEntry();
+            }
+            // add directory permissions
+            foreach (string path in DirectoryEntries)
+            {
+                ZipEntry newEntry = new(path)
+                {
+                    // 755, directory
+                    ExternalFileAttributes = 0x41ED << 16,
+                    HostSystem = (int)HostSystemID.Unix,
+                    CompressionMethod = CompressionMethod.Stored,
+                };
+                dest.PutNextEntry(newEntry);
+                dest.CloseEntry();
+            }
         });
+
+    private static readonly string[] DirectoryEntries = ["BepInExPack/", "BepInExPack/BepInEx/", "BepInExPack/BepInEx/config/", "BepInExPack/BepInEx/core/", "BepInExPack/BepInEx/plugins/"];
 
     [GeneratedRegex(@"^BepInEx_(?<platform>\w+)_(?<architecture>\w+)_(?<version>.+)\.zip$")]
     private static partial Regex AssetMatcher();
