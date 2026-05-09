@@ -47,6 +47,7 @@ partial class Build : NukeBuild
         .Executes(async () =>
         {
             ObjDir.CreateOrCleanDirectory();
+            BinDir.CreateDirectory();
 
             HttpClient httpClient = new();
             GitHubClient client = new(new ProductHeaderValue("BepInExPack-Silksong-Build"));
