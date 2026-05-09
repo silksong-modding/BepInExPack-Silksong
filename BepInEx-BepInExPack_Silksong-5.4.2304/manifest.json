@@ -1,0 +1,8 @@
+{
+    "namespace": "BepInEx",
+    "name": "BepInExPack_Silksong",
+    "version_number": "5.4.2304",
+    "website_url": "https://github.com/BepInEx/BepInEx",
+    "description": "BepInEx modloader. Preconfigured and ready to use.",
+    "dependencies": []
+}
