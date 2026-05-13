@@ -48,7 +48,7 @@ jobs:
           ./build.cmd publish \
             --github-token ${{ secrets.GITHUB_TOKEN }} \
             --thunderstore-token ${{ secrets.THUNDERSTORE_API_KEY }} \
-            --artifact-path bin/*.zip
+            --artifact-dir bin/
 
   secret-check:
     runs-on: ubuntu-latest

@@ -10,6 +10,8 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Nuke.Common.CI.GitHubActions;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 
 partial class Build : NukeBuild
 {
@@ -44,7 +46,7 @@ partial class Build : NukeBuild
     readonly string ThunderstoreToken;
 
     [Parameter]
-    readonly AbsolutePath ArtifactPath;
+    readonly AbsolutePath ArtifactDir;
 
     public static int Main() => Execute<Build>(x => x.Package);
 
@@ -148,9 +150,14 @@ partial class Build : NukeBuild
     Target Publish => _ => _
         .Requires(() => GitHubToken)
         .Requires(() => ThunderstoreToken)
-        .Requires(() => ArtifactPath)
+        .Requires(() => ArtifactDir)
         .Executes(async () =>
         {
+            Assert.DirectoryExists(ArtifactDir);
+            IReadOnlyCollection<AbsolutePath> possibleArtifacts = ArtifactDir.GlobFiles("*.zip");
+            Assert.Count(possibleArtifacts, 1);
+            AbsolutePath artifactPath = possibleArtifacts.First();
+
             bool isDryrun = GitHubActions.Instance == null;
             if (isDryrun)
             {
@@ -173,12 +180,12 @@ partial class Build : NukeBuild
                 Credentials = new Credentials(GitHubToken)
             };
 
-            Log.Information("Publishing {path} to Thunderstore", ArtifactPath);
+            Log.Information("Publishing {path} to Thunderstore", artifactPath);
             if (!isDryrun)
             {
-                Tcli($"publish --file {ArtifactPath} --token {ThunderstoreToken}");
+                Tcli($"publish --file {artifactPath} --token {ThunderstoreToken}");
             }
-            Log.Information("Publishing {path} to GitHub at {tag}", ArtifactPath, tag);
+            Log.Information("Publishing {path} to GitHub at {tag}", artifactPath, tag);
             if (!isDryrun)
             {
                 if (GitHubActions.Instance.Repository.Split('/') is not [string owner, string repo])
@@ -191,10 +198,10 @@ partial class Build : NukeBuild
                     GenerateReleaseNotes = true,
                     Draft = true
                 });
-                using FileStream fs = ArtifactPath.ToFileInfo().OpenRead();
+                using FileStream fs = artifactPath.ToFileInfo().OpenRead();
                 await client.Repository.Release.UploadAsset(release, new ReleaseAssetUpload()
                 {
-                    FileName = ArtifactPath.Name,
+                    FileName = artifactPath.Name,
                     ContentType = "application/zip",
                     RawData = fs,
                 });
