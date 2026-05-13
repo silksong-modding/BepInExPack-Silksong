@@ -8,9 +8,13 @@ using ICSharpCode.SharpZipLib.Zip;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Nuke.Common.CI.GitHubActions;
+using System.IO;
 
 partial class Build : NukeBuild
 {
+    readonly ProductHeaderValue ProductHeader = new("BepInExPack-Silksong-Build");
+
     readonly AbsolutePath ObjDir = RootDirectory / "obj";
     readonly AbsolutePath BuildStaging = RootDirectory / "obj" / "staging";
     readonly AbsolutePath BuildAssets = RootDirectory / "obj" / "assets";
@@ -33,6 +37,15 @@ partial class Build : NukeBuild
     )]
     readonly Tool Tcli;
 
+    [Parameter, Secret]
+    readonly string GitHubToken;
+
+    [Parameter, Secret]
+    readonly string ThunderstoreToken;
+
+    [Parameter]
+    readonly AbsolutePath ArtifactPath;
+
     public static int Main() => Execute<Build>(x => x.Package);
 
     Target Clean => _ => _
@@ -50,7 +63,7 @@ partial class Build : NukeBuild
             BinDir.CreateDirectory();
 
             HttpClient httpClient = new();
-            GitHubClient client = new(new ProductHeaderValue("BepInExPack-Silksong-Build"));
+            GitHubClient client = new(ProductHeader);
             Release release = await client.Repository.Release.Get("BepInEx", "BepInEx", "v" + BepInExVersion);
             await Parallel.ForEachAsync(release.Assets, async (asset, ct) =>
             {
@@ -129,6 +142,67 @@ partial class Build : NukeBuild
                 };
                 dest.PutNextEntry(newEntry);
                 dest.CloseEntry();
+            }
+        });
+
+    Target Publish => _ => _
+        .Requires(() => GitHubToken)
+        .Requires(() => ThunderstoreToken)
+        .Requires(() => ArtifactPath)
+        .Executes(async () =>
+        {
+            bool isDryrun = GitHubActions.Instance == null;
+            if (isDryrun)
+            {
+                Log.Information("Running outside GitHub Actions, running in dryrun mode");
+            }
+
+            string tag;
+            if (isDryrun)
+            {
+                tag = "refs/tags/v0.0.0"[10..];
+            }
+            else
+            {
+                Assert.True(GitHubActions.Instance.Ref.StartsWith("refs/tags/"), "Publish task may only be run on tag pushes");
+                tag = GitHubActions.Instance.Ref[10..];
+            }
+
+            GitHubClient client = new(ProductHeader)
+            {
+                Credentials = new Credentials(GitHubToken)
+            };
+
+            Log.Information("Publishing {path} to Thunderstore", ArtifactPath);
+            if (!isDryrun)
+            {
+                Tcli($"publish --file {ArtifactPath} --token {ThunderstoreToken}");
+            }
+            Log.Information("Publishing {path} to GitHub at {tag}", ArtifactPath, tag);
+            if (!isDryrun)
+            {
+                if (GitHubActions.Instance.Repository.Split('/') is not [string owner, string repo])
+                {
+                    Assert.Fail("Could not extract owner and repo");
+                    return;
+                }
+                Release release = await client.Repository.Release.Create(owner, repo, new NewRelease(tag)
+                {
+                    GenerateReleaseNotes = true,
+                    Draft = true
+                });
+                using FileStream fs = ArtifactPath.ToFileInfo().OpenRead();
+                await client.Repository.Release.UploadAsset(release, new ReleaseAssetUpload()
+                {
+                    FileName = ArtifactPath.Name,
+                    ContentType = "application/zip",
+                    RawData = fs,
+                });
+                await client.Repository.Release.Edit(owner, repo, release.Id, new ReleaseUpdate()
+                {
+                    Draft = false,
+                    MakeLatest = MakeLatestQualifier.True,
+                });
             }
         });
 

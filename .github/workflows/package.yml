@@ -3,13 +3,19 @@ name: package
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*.*.*" ]
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
-  ubuntu-latest:
-    name: ubuntu-latest
+  package:
     runs-on: ubuntu-latest
+    outputs:
+      artifact-id: ${{ steps.artifacts.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -18,7 +24,35 @@ jobs:
       - name: 'Run: Package'
         run: ./build.cmd Package
       - name: 'Artifacts: bin'
+        id: artifacts
         uses: actions/upload-artifact@v7
         with:
           path: bin/*.zip
           archive: false
+
+  publish:
+    runs-on: ubuntu-latest
+    needs:
+      - secret-check
+      - package
+    if: needs.secret-check.outputs.has-thunderstore-secret == 'true' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          artifact-ids: ${{ needs.package.outputs.artifact-id }}
+          path: bin/
+          skip-decompress: true
+      - name: Publish
+        run: |-
+          ./build.cmd publish \
+            --github-token ${{ secrets.GITHUB_TOKEN }} \
+            --thunderstore-token ${{ secrets.THUNDERSTORE_API_KEY }} \
+            --artifact-path bin/*.zip
+
+  secret-check:
+    runs-on: ubuntu-latest
+    outputs:
+      has-thunderstore-secret: ${{ secrets.THUNDERSTORE_API_KEY != '' }}
+    steps:
+      - run: echo no-op
