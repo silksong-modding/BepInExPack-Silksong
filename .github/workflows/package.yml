@@ -38,7 +38,7 @@ jobs:
     if: needs.secret-check.outputs.has-thunderstore-secret == 'true' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           artifact-ids: ${{ needs.package.outputs.artifact-id }}
           path: bin/
