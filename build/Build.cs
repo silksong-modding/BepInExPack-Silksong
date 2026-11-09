@@ -1,7 +1,7 @@
-using Nuke.Common;
-using Nuke.Common.IO;
-using Nuke.Common.Tooling;
-using Nuke.Common.Tools.Git;
+using Fallout.Common;
+using Fallout.Common.IO;
+using Fallout.Common.Tooling;
+using Fallout.Common.Tools.Git;
 using Octokit;
 using Serilog;
 using ICSharpCode.SharpZipLib.Zip;
@@ -12,7 +12,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 
-partial class Build : NukeBuild
+partial class Build : FalloutBuild
 {
     readonly ProductHeaderValue ProductHeader = new("BepInExPack-Silksong-Build");
 
