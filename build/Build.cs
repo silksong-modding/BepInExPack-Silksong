@@ -1,19 +1,18 @@
-using Nuke.Common;
-using Nuke.Common.IO;
-using Nuke.Common.Tooling;
-using Nuke.Common.Tools.Git;
+using Fallout.Common;
+using Fallout.Common.IO;
+using Fallout.Common.Tooling;
+using Fallout.Common.Tools.Git;
 using Octokit;
 using Serilog;
 using ICSharpCode.SharpZipLib.Zip;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Nuke.Common.CI.GitHubActions;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 
-partial class Build : NukeBuild
+partial class Build : FalloutBuild
 {
     readonly ProductHeaderValue ProductHeader = new("BepInExPack-Silksong-Build");
 
@@ -40,13 +39,16 @@ partial class Build : NukeBuild
     readonly Tool Tcli;
 
     [Parameter, Secret]
-    readonly string GitHubToken;
-
-    [Parameter, Secret]
     readonly string ThunderstoreToken;
 
     [Parameter]
     readonly AbsolutePath ArtifactDir;
+
+    [Parameter("The release tag being published, e.g. v1.2.3")]
+    readonly string Tag;
+
+    [Parameter("Run the publish steps without uploading anything")]
+    readonly bool DryRun;
 
     public static int Main() => Execute<Build>(x => x.Package);
 
@@ -148,69 +150,28 @@ partial class Build : NukeBuild
         });
 
     Target Publish => _ => _
-        .Requires(() => GitHubToken)
         .Requires(() => ThunderstoreToken)
         .Requires(() => ArtifactDir)
-        .Executes(async () =>
+        .Requires(() => Tag)
+        .Executes(() =>
         {
             Assert.DirectoryExists(ArtifactDir);
             IReadOnlyCollection<AbsolutePath> possibleArtifacts = ArtifactDir.GlobFiles("*.zip");
             Assert.Count(possibleArtifacts, 1);
             AbsolutePath artifactPath = possibleArtifacts.First();
 
-            bool isDryrun = GitHubActions.Instance == null;
-            if (isDryrun)
+            Assert.True(Tag.StartsWith('v'), $"Tag '{Tag}' must be a version tag (v*)");
+            if (DryRun)
             {
-                Log.Information("Running outside GitHub Actions, running in dryrun mode");
+                Log.Information("Dry run: nothing will be published");
             }
 
-            string tag;
-            if (isDryrun)
-            {
-                tag = "refs/tags/v0.0.0"[10..];
-            }
-            else
-            {
-                Assert.True(GitHubActions.Instance.Ref.StartsWith("refs/tags/"), "Publish task may only be run on tag pushes");
-                tag = GitHubActions.Instance.Ref[10..];
-            }
-
-            GitHubClient client = new(ProductHeader)
-            {
-                Credentials = new Credentials(GitHubToken)
-            };
-
-            Log.Information("Publishing {path} to Thunderstore", artifactPath);
-            if (!isDryrun)
+            Log.Information("Publishing {path} to Thunderstore at {tag}", artifactPath, Tag);
+            if (!DryRun)
             {
                 Tcli($"publish --file {artifactPath} --token {ThunderstoreToken}");
             }
-            Log.Information("Publishing {path} to GitHub at {tag}", artifactPath, tag);
-            if (!isDryrun)
-            {
-                if (GitHubActions.Instance.Repository.Split('/') is not [string owner, string repo])
-                {
-                    Assert.Fail("Could not extract owner and repo");
-                    return;
-                }
-                Release release = await client.Repository.Release.Create(owner, repo, new NewRelease(tag)
-                {
-                    GenerateReleaseNotes = true,
-                    Draft = true
-                });
-                using FileStream fs = artifactPath.ToFileInfo().OpenRead();
-                await client.Repository.Release.UploadAsset(release, new ReleaseAssetUpload()
-                {
-                    FileName = artifactPath.Name,
-                    ContentType = "application/zip",
-                    RawData = fs,
-                });
-                await client.Repository.Release.Edit(owner, repo, release.Id, new ReleaseUpdate()
-                {
-                    Draft = false,
-                    MakeLatest = MakeLatestQualifier.True,
-                });
-            }
+            // The forge release is created by the workflow (forgejo-release), not here.
         });
 
     private static readonly string[] DirectoryEntries = ["BepInExPack/", "BepInExPack/BepInEx/", "BepInExPack/BepInEx/config/", "BepInExPack/BepInEx/core/", "BepInExPack/BepInEx/plugins/"];
